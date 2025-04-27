@@ -40,8 +40,8 @@ Perfect for data analysts, crypto researchers, and DeFi enthusiasts.
 
 1. **Clone the Repo**
    ```bash
-   git clone https://github.com/parrnn/vybe-telegram-bot.git
-   cd vybe-telegram-bot
+   git clone https://github.com/parrnn/Telegram-Bot-For-Vybe.git
+   cd Telegram-Bot-For-Vybe
    ```
 
 2. **Install Dependencies**
