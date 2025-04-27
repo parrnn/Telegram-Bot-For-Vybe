@@ -1,0 +1,4 @@
+python-telegram-bot==20.8
+requests==2.31.0
+matplotlib==3.8.3
+pandas==2.2.2
