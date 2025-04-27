@@ -108,7 +108,7 @@ headers = {
 Here’s a quick demo of VybeBot in action! 🚀
 
 <p align="center">
-  <img src="https://github.com/parrnn/Vybe-Telegram-Bot/blob/main/Tutorial/VYBE.gif?raw=true" alt="VybeBot Demo" width="250"/>
+  <img src="https://github.com/parrnn/Telegram-Bot-For-Vybe/blob/main/Tutorial/VYBE.gif?raw=true" alt="VybeBot Demo" width="250"/>
 </p>
 ---
 
