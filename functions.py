@@ -9,7 +9,6 @@ import os
 import pandas as pd
 from typing import Union, Tuple
 
-# API request headers
 headers = {
     "accept": "application/json",
     "X-API-KEY": "YOUR_API_KEY"

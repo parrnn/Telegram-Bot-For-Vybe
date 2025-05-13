@@ -95,10 +95,14 @@ headers = {
 ## 📂 Project Structure
 
 ```
-/functions.py      # All Telegram bot functions
-/main.py           # Main message handler and logic
-/requirements.txt  # Python dependencies
-/README.md         # This documentation file
+vybebot/
+├── main.py               # Core message routing logic (user entry point)
+├── handlers.py           # Awaiting handlers and input validation flows
+├── functions.py          # Core functional logic (API calls, charts, etc.)
+├── menu.py               # Menu button layouts (main and submenus)
+├── messages.py           # Reusable message strings and prompts
+├── requirements.txt      # Python dependencies
+└── README.md             # Documentation and usage instructions
 ```
 
 ---
