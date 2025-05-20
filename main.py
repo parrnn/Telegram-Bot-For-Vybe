@@ -22,11 +22,11 @@ Usage Flow:
 5. Users can return or reset state via 🔙 Back or 🏠 Main Menu.
 """
 
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-
-from menu import *
-from messages import *
-from functions import *
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from constants.messages import *
+from telegram.ext import ContextTypes
+from constants.menu import *
 from handlers import (
     handle_back_button, handle_collection_owners_awaiting, handle_program_details_awaiting,
     handle_top_wallets_awaiting, handle_wallet_pnl_awaiting, handle_wallet_portfolio_awaiting,
@@ -41,13 +41,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     context.user_data["last_menu"] = "main"
     await update.message.reply_text(
-        WELCOME_TEXT % user.first_name,
+        WELCOME_TEXT.format(user.first_name),
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)
     )
-
-
-...
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text

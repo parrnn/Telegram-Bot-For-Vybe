@@ -4,10 +4,14 @@ Handles multi-step input logic for VybeBot command flows.
 Each handler processes Telegram user input for specific actions
 like token OHLCV, TVL, NFT portfolios, volume charts, and more.
 """
+from functions.charts import *
+from functions.functions import *
+from functions.evaluates import *
+from constants.menu import *
+import os
+from telegram import InputFile, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-from messages import *
-from functions import *
-from menu import *
+
 
 async def handle_back_button(context, update):
     for key in list(context.user_data.keys()):
@@ -36,7 +40,7 @@ async def handle_collection_owners_awaiting(text, context, update):
             await update.message.reply_text(INVALID_COLLECTION_ADDRESS)
             return True
 
-        response = get_nft_collection_owners(collection_address)
+        response = retrieve_nft_collection_owners(collection_address)
 
         if response == "🔍 Not Found (404): No such collection found.":
             await update.message.reply_text(COLLECTION_NOT_FOUND)
@@ -46,18 +50,19 @@ async def handle_collection_owners_awaiting(text, context, update):
 
         if isinstance(response, list):
             for chunk in response:
-                await update.message.reply_text(chunk)  # no parse_mode
+                await update.message.reply_text(chunk, parse_mode="Markdown", disable_web_page_preview=True)
         else:
-            await update.message.reply_text(response)  # no parse_mode
+            await update.message.reply_text(response, parse_mode="Markdown", disable_web_page_preview=True)
 
         return True
+
 
     return False
 
 async def handle_program_details_awaiting(text, context, update):
     if context.user_data.get("awaiting_program_address"):
         program_address = text.strip()
-        response = get_program_details(program_address)
+        response = retrieve_program_details(program_address)
 
         if isinstance(response, tuple):
             context.user_data["awaiting_program_address"] = False
@@ -80,7 +85,7 @@ async def handle_top_wallets_awaiting(text, context, update):
             await update.message.reply_text((INVALID_ADDRESS), disable_web_page_preview=True)
             return True
 
-        program_name = get_program_name(program_address)
+        program_name = retrieve_program_name(program_address)
 
         if not program_name:
             await update.message.reply_text((INVALID_PROGRAM_ADDRESS),  disable_web_page_preview=True)
@@ -104,7 +109,7 @@ async def handle_top_wallets_awaiting(text, context, update):
         program_address = context.user_data.get("program_address")
         program_name = context.user_data.get("program_name")
 
-        response = get_top_active_wallets(program_address, days=int(days), limit=10)
+        response = retrieve_top_active_wallets(program_address, days=int(days), limit=10)
         await update.message.reply_text((response), parse_mode="Markdown")
         return True
 
@@ -121,7 +126,7 @@ async def handle_wallet_nft_awaiting(text, context, update):
         context.user_data["awaiting_wallet_nft"] = False
         context.user_data["awaiting_nft_wallet"] = False
 
-        response = get_nft_portfolio(wallet)
+        response = retrieve_nft_portfolio(wallet)
         await update.message.reply_text(response, parse_mode="Markdown")
         return True
 
@@ -150,7 +155,7 @@ async def handle_wallet_pnl_awaiting(text, context, update):
 
         context.user_data["awaiting_pnl_days"] = False
         wallet = context.user_data.get("wallet_for_pnl")
-        response = get_wallet_pnl_summary(wallet, int(days))
+        response = retrieve_wallet_pnl_summary(wallet, int(days))
 
         if isinstance(response, list):
             for chunk in response:
@@ -171,7 +176,7 @@ async def handle_wallet_portfolio_awaiting(text, context, update):
             return True
 
         context.user_data["awaiting_wallet_portfolio"] = False
-        response = get_wallet_portfolio_summary(wallet)
+        response = retrieve_wallet_portfolio_summary(wallet)
 
         if isinstance(response, list):
             for chunk in response:
@@ -192,7 +197,7 @@ async def handle_wallet_spl_awaiting(text, context, update):
             return True
 
         context.user_data["awaiting_wallet_spl"] = False
-        response = get_wallet_token_summary(wallet)
+        response = retrieve_wallet_token_summary(wallet)
 
         if isinstance(response, list):
             for chunk in response:
@@ -213,7 +218,7 @@ async def handle_token_info_awaiting(text, context, update):
             return True
 
         context.user_data["awaiting_token_mint"] = False
-        response = get_token_info(mint)
+        response = retrieve_token_info(mint)
 
         if isinstance(response, tuple):
             message, logo_url = response
@@ -255,7 +260,7 @@ async def handle_ohlcv_awaiting(text, context, update):
 
     elif context.user_data.get("awaiting_ohlcv_start"):
         start = text.strip()
-        if not to_unix_from_full_datetime(start):
+        if not full_datetime_to_unix(start):
             await update.message.reply_text(INVALID_START_DATE,  disable_web_page_preview=True)
             return True
         context.user_data["ohlcv_start"] = start
@@ -270,7 +275,7 @@ async def handle_ohlcv_awaiting(text, context, update):
         resolution = context.user_data.get("ohlcv_resolution")
         start = context.user_data.get("ohlcv_start")
 
-        if not to_unix_from_full_datetime(end) or to_unix_from_full_datetime(end) <= to_unix_from_full_datetime(start):
+        if not full_datetime_to_unix(end) or full_datetime_to_unix(end) <= full_datetime_to_unix(start):
             await update.message.reply_text(INVALID_END_DATE, disable_web_page_preview=True)
             return True
 
@@ -278,7 +283,7 @@ async def handle_ohlcv_awaiting(text, context, update):
             if key.startswith("awaiting_ohlcv") or key.startswith("ohlcv_"):
                 del context.user_data[key]
 
-        response = get_token_ohlcv_data(
+        response = retrieve_token_ohlcv_data(
             mint_address=mint,
             resolution=resolution,
             start_date=start,
@@ -303,7 +308,7 @@ async def handle_active_users_awaiting(text, context, update):
             await update.message.reply_text(INVALID_ADDRESS, disable_web_page_preview=True)
             return True
 
-        program_name = get_program_name(program_address)
+        program_name = retrieve_program_name(program_address)
         if not program_name:
             await update.message.reply_text(INVALID_PROGRAM_ADDRESS, disable_web_page_preview=True)
             return True
@@ -325,7 +330,7 @@ async def handle_active_users_awaiting(text, context, update):
         context.user_data["awaiting_active_users_range"] = False
         program_address = context.user_data.get("chart_program_address")
 
-        await generate_and_send_chart(update, context, program_address, time_range)
+        await send_program_dau_chart(update, context, program_address, time_range)
         return True
 
     return False
@@ -355,7 +360,7 @@ async def handle_transactions_awaiting(text, context, update):
         context.user_data["awaiting_tx_range"] = False
         program_address = context.user_data.get("tx_program_address")
 
-        await generate_and_send_tx_chart(update, context, program_address, time_range)
+        await send_program_tx_chart(update, context, program_address, time_range)
         return True
 
     return False
@@ -378,7 +383,7 @@ async def handle_daily_top_holders_awaiting(text, context, update):
 
     elif context.user_data.get("awaiting_daily_holder_start"):
         start_date = text.strip()
-        if not to_unix_from_full_datetime(start_date):
+        if not full_datetime_to_unix(start_date):
             await update.message.reply_text(INVALID_START_DATE,
                                             disable_web_page_preview=True)
             return True
@@ -395,7 +400,7 @@ async def handle_daily_top_holders_awaiting(text, context, update):
         end_date = text.strip()
         start = context.user_data.get("daily_holder_start")
 
-        if not to_unix_from_full_datetime(end_date) or to_unix_from_full_datetime(end_date) <= to_unix_from_full_datetime(start):
+        if not full_datetime_to_unix(end_date) or full_datetime_to_unix(end_date) <= full_datetime_to_unix(start):
             await update.message.reply_text(INVALID_END_DATE,
                                             disable_web_page_preview=True)
             return True
@@ -403,7 +408,7 @@ async def handle_daily_top_holders_awaiting(text, context, update):
         context.user_data["awaiting_daily_holder_end"] = False
         mint = context.user_data["daily_holder_mint"]
 
-        message, chart_path = get_daily_top_holders_chart(mint, start, end_date)
+        message, chart_path = retrieve_daily_top_holders_chart(mint, start, end_date)
 
         await update.message.reply_text(message, parse_mode="Markdown")
 
@@ -474,7 +479,7 @@ async def handle_top_token_holders_awaiting(text, context, update):
         order = context.user_data["sort_order"]
 
         context.user_data["awaiting_holder_limit"] = False
-        result = get_top_token_holders(mint, sort, order, limit)
+        result = retrieve_top_token_holders(mint, sort, order, limit)
 
         await update.message.reply_text(result, parse_mode="Markdown")
 
@@ -508,7 +513,7 @@ async def handle_volume_awaiting(text, context, update):
     elif context.user_data.get("awaiting_volume_start"):
         start_date = text.strip()
 
-        if not to_unix_from_full_datetime(start_date):
+        if not full_datetime_to_unix(start_date):
             await update.message.reply_text(INVALID_START_DATE,
                                             disable_web_page_preview=True)
             return True
@@ -525,7 +530,7 @@ async def handle_volume_awaiting(text, context, update):
         end_date = text.strip()
         start = context.user_data["volume_start"]
 
-        if not to_unix_from_full_datetime(end_date) or to_unix_from_full_datetime(end_date) <= to_unix_from_full_datetime(start):
+        if not full_datetime_to_unix(end_date) or full_datetime_to_unix(end_date) <= full_datetime_to_unix(start):
             await update.message.reply_text(INVALID_END_DATE,
                                             disable_web_page_preview=True)
             return True
@@ -550,7 +555,7 @@ async def handle_volume_awaiting(text, context, update):
         start = context.user_data.get("volume_start")
         end = context.user_data.get("volume_end")
 
-        summary, filename = get_transfer_volume_chart(mint, start, end, interval)
+        summary, filename = retrieve_transfer_volume_chart(mint, start, end, interval)
 
         for key in list(context.user_data.keys()):
             if key.startswith("volume_") or key.startswith("awaiting_volume_"):

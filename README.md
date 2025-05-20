@@ -57,7 +57,8 @@ Perfect for data analysts, crypto researchers, and DeFi enthusiasts.
 bot_token = "YOUR_BOT_TOKEN_HERE"
 ```
 
- - Open `functions.py` and insert your Vybe API Key inside the `headers`:
+- Open `globals`/`preferences.py` and insert your Vybe API Key inside the `headers` dictionary.
+
 
 ```python
 headers = {
@@ -96,13 +97,26 @@ headers = {
 
 ```
 vybebot/
-├── main.py               # Core message routing logic (user entry point)
-├── handlers.py           # Awaiting handlers and input validation flows
-├── functions.py          # Core functional logic (API calls, charts, etc.)
-├── menu.py               # Menu button layouts (main and submenus)
-├── messages.py           # Reusable message strings and prompts
-├── requirements.txt      # Python dependencies
-└── README.md             # Documentation and usage instructions
+├── Main.py                  # Main entry point for the Telegram bot (message routing)
+├── Handlers.py              # Awaiting handlers and user input flows
+├── functions/               # Core logic split into functional modules
+│   ├── charts.py            # Chart generation (TVL, Txs, OHLCV, etc.)
+│   ├── converts.py          # Safe type conversion helpers (e.g. to_float_safe)
+│   ├── datetime.py          # Unix timestamp to readable time conversions
+│   ├── evaluates.py         # Input validation (address format, limits, dates)
+│   └── functions.py         # API calls and data-fetching functions
+├── constants/               # Reusable constants and layouts
+│   ├── menu.py              # ReplyKeyboard layout for menus and submenus
+│   └── messages.py          # Reusable message templates and error strings
+├── Globals/
+│   ├── preferences.py       # API headers (Vybe API key, request config)
+│   └── urls.py              # Vybe API endpoint templates
+├── Tutorial/
+│   └── vybe.gif             # GIF demo of the bot in action
+├── requirements.txt         # Python dependency list
+├── LICENSE                  # Project license
+└── README.md                # Documentation and usage instructions
+
 ```
 
 ---
