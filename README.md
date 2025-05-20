@@ -63,7 +63,7 @@ bot_token = "YOUR_BOT_TOKEN_HERE"
 ```python
 headers = {
       "accept": "application/json",
-      "X-API-KEY": "YOUR_API_KEY"
+      "X-API-KEY": "YOUR_API_KEY_HERE"
   }
 ```
 

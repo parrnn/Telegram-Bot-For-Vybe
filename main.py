@@ -41,48 +41,47 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     context.user_data["last_menu"] = "main"
     await update.message.reply_text(
-        WELCOME_TEXT.format(user.first_name),
+        str.format(WELCOME_TEXT,user.first_name),
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)
     )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-
-    # Menus
-    if text == "🎨 NFT":
-        await update.message.reply_text("🎨 *NFT Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(nft_menu, resize_keyboard=True)); return
-    if text == "📦 Programs":
-        context.user_data["last_menu"] = "main"
-        await update.message.reply_text("📦 *Programs Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(programs_menu, resize_keyboard=True)); return
-    if text == "📊 Token Analysis":
-        context.user_data["last_menu"] = "token"
-        await update.message.reply_text("📊 *Token Analysis Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(token_menu, resize_keyboard=True)); return
-    if text == "👤 Holders":
-        context.user_data["last_menu"] = "holders"
-        await update.message.reply_text("👤 *Holders Submenu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(holders_submenu, resize_keyboard=True)); return
-    if text == "🧾 Wallet Tracking":
-        context.user_data["last_menu"] = "main"
-        await update.message.reply_text("🧾 *Wallet Tracking Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(wallet_menu, resize_keyboard=True)); return
-    if text == "🅰️ Alpha Vybe":
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Open AlphaVybe", url="https://vybe.fyi/")]])
-        await update.message.reply_text(ALPHA, parse_mode="Markdown", disable_web_page_preview=True,
-                                        reply_markup=keyboard); return
-    if text == "❓ Help":
-        await update.message.reply_text(HELP, parse_mode="Markdown", disable_web_page_preview=True,
-                                        reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)); return
-    if text == "🏠 Main Menu":
-        context.user_data.clear()
-        context.user_data["last_menu"] = "main"
-        await update.message.reply_text("🏠 *Main Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)); return
-    if text == "🔙 Back":
-        await handle_back_button(context, update); return
+    match text :
+        case "🎨 NFT":
+            await update.message.reply_text("🎨 *NFT Menu*", parse_mode="Markdown",
+                                            reply_markup=ReplyKeyboardMarkup(nft_menu, resize_keyboard=True)); return
+        case "📦 Programs":
+            context.user_data["last_menu"] = "main"
+            await update.message.reply_text("📦 *Programs Menu*", parse_mode="Markdown",
+                                            reply_markup=ReplyKeyboardMarkup(programs_menu, resize_keyboard=True));return
+        case "📊 Token Analysis":
+            context.user_data["last_menu"] = "token"
+            await update.message.reply_text("📊 *Token Analysis Menu*", parse_mode="Markdown",
+                                            reply_markup=ReplyKeyboardMarkup(token_menu, resize_keyboard=True));return
+        case "👤 Holders":
+            context.user_data["last_menu"] = "holders"
+            await update.message.reply_text("👤 *Holders Submenu*", parse_mode="Markdown",
+                                            reply_markup=ReplyKeyboardMarkup(holders_submenu, resize_keyboard=True));return
+        case "🧾 Wallet Tracking":
+            context.user_data["last_menu"] = "main"
+            await update.message.reply_text("🧾 *Wallet Tracking Menu*", parse_mode="Markdown",
+                                            reply_markup=ReplyKeyboardMarkup(wallet_menu, resize_keyboard=True)); return
+        case "🅰️ Alpha Vybe":
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Open AlphaVybe", url="https://vybe.fyi/")]])
+            await update.message.reply_text(ALPHA, parse_mode="Markdown", disable_web_page_preview=True,
+                                            reply_markup=keyboard); return
+        case "❓ Help":
+            await update.message.reply_text(HELP, parse_mode="Markdown", disable_web_page_preview=True,
+                                            reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)); return
+        case "🏠 Main Menu":
+            context.user_data.clear()
+            context.user_data["last_menu"] = "main"
+            await update.message.reply_text("🏠 *Main Menu*", parse_mode="Markdown",
+                                            reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)); return
+        case "🔙 Back":
+            await handle_back_button(context, update); return
 
     awaiting_starters = {
         "👑 NFT Collection Owners": ("awaiting_collection_address", ENTER_COLLECTION_ADDRESS),

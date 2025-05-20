@@ -62,7 +62,7 @@ async def send_program_dau_chart(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text(PROGRAM_NOT_FOUND)
         return
 
-    url = PROGRAM_ACTIVE_USERS_URL.format(program_address,time_range)
+    url = str.format(PROGRAM_ACTIVE_USERS_URL,program_address,time_range)
 
     try:
         response = requests.get(url, headers=headers, timeout=350)
@@ -80,7 +80,8 @@ async def send_program_dau_chart(update: Update, context: ContextTypes.DEFAULT_T
         user_counts = [item["dau"] for item in data]
         total_active_users = sum(user_counts)
 
-        lines = [ACTIVE_USERS_HEADER.format(time_range, program_name)]
+        lines = [str.format(ACTIVE_USERS_HEADER, time_range, program_name)]
+
 
         lines += [f"🕒 {dt} → 👥 {count}" for dt, count in zip(time_labels, user_counts)]
         lines.append("──────────────────────────────")
@@ -115,9 +116,9 @@ async def send_program_dau_chart(update: Update, context: ContextTypes.DEFAULT_T
     except requests.exceptions.ReadTimeout:
         await update.message.reply_text(TIMEOUT_ERROR)
     except requests.exceptions.RequestException as e:
-        await update.message.reply_text((NETWORK_ERROR.format(e)))
+        await update.message.reply_text((str.format(NETWORK_ERROR,e)))
     except Exception as e:
-        await update.message.reply_text((UNEXPECTED.format(e)))
+        await update.message.reply_text((str.format(UNEXPECTED,e)))
 
 async def send_program_tx_chart(update: Update, context: ContextTypes.DEFAULT_TYPE, program_address: str, range_value: str):
     """
@@ -172,7 +173,8 @@ async def send_program_tx_chart(update: Update, context: ContextTypes.DEFAULT_TY
     if not program_name:
         await update.message.reply_text(PROGRAM_NOT_FOUND)
         return
-    url = PROGRAM_TXS_URL.format(program_address,range_value)
+
+    url = str.format(PROGRAM_TXS_URL,program_address,range_value)
 
     try:
         response = requests.get(url, headers=headers, timeout=350)
@@ -185,7 +187,8 @@ async def send_program_tx_chart(update: Update, context: ContextTypes.DEFAULT_TY
 
         timestamps = []
         tx_counts = []
-        summary = [TRANSACTIONS_HEADER.format(range_value, program_name)]
+
+        summary = [str.format(TRANSACTIONS_HEADER,range_value, program_name)]
 
         for entry in data:
             count = entry.get("transactionsCount", 0)
@@ -237,7 +240,7 @@ async def send_program_tx_chart(update: Update, context: ContextTypes.DEFAULT_TY
                 return
 
             if (unit == "h" and value == 24) or (unit == "d" and value == 1):
-                hourly_url = PROGRAM_TXS_URL.format(program_address,"24h")
+                hourly_url =str.format(PROGRAM_TXS_URL,program_address,"24h")
                 hourly_response = requests.get(hourly_url, headers=headers, timeout=350)
                 hourly_response.raise_for_status()
                 hourly_data = hourly_response.json().get("data", [])
@@ -304,9 +307,9 @@ async def send_program_tx_chart(update: Update, context: ContextTypes.DEFAULT_TY
     except requests.exceptions.ReadTimeout:
         await update.message.reply_text(TIMEOUT_ERROR)
     except requests.exceptions.RequestException as e:
-        await update.message.reply_text((NETWORK_ERROR.format(e)))
+        await update.message.reply_text((str.format(NETWORK_ERROR,e)))
     except Exception as e:
-        await update.message.reply_text((UNEXPECTED.format(e)))
+        await update.message.reply_text((str.format(UNEXPECTED,e)))
 
 def retrieve_daily_top_holders_chart(mint_address: str, start_date: str, end_date: str) -> tuple[str, str | None]:
     """
@@ -360,7 +363,7 @@ def retrieve_daily_top_holders_chart(mint_address: str, start_date: str, end_dat
     if start_unix is None or end_unix is None:
         return "❌ Invalid date format! Please use YYYY-MM-DD.", None
 
-    url = DAILY_TOP_TOKEN_HOLDERS_URL.format(mint_address,start_unix,end_unix)
+    url = str.format(DAILY_TOP_TOKEN_HOLDERS_URL,mint_address,start_unix,end_unix)
 
     try:
         response = requests.get(url, headers=headers, timeout=350)
@@ -372,7 +375,7 @@ def retrieve_daily_top_holders_chart(mint_address: str, start_date: str, end_dat
 
         time_labels = []
         holders = []
-        lines = [DAILY_HOLDERS_HEADER.format(mint_address, start_date, end_date), ""]
+        lines = [str.format(DAILY_HOLDERS_HEADER,mint_address, start_date, end_date), ""]
 
         for item in data:
             readable_time = datetime.utcfromtimestamp(item["holdersTimestamp"]).strftime('%Y-%m-%d')
@@ -403,9 +406,9 @@ def retrieve_daily_top_holders_chart(mint_address: str, start_date: str, end_dat
             return "\n".join(lines), None
 
     except requests.exceptions.RequestException as e:
-        return (NETWORK_ERROR.format(e)), None
+        return (str.format(NETWORK_ERROR,e)), None
     except Exception as e:
-        return (UNEXPECTED.format(e)), None
+        return (str.format(UNEXPECTED,e)), None
 def retrieve_transfer_volume_chart(mint_address: str, start_date: str, end_date: str, interval: str):
     """
     Fetch and format the transfer volume data for a given token mint over a specified time range.
@@ -464,7 +467,7 @@ def retrieve_transfer_volume_chart(mint_address: str, start_date: str, end_date:
     if interval.lower() not in ['hour', 'day']:
         return INVALID_INTERVAL, None
 
-    url = TOKEN_VOLUME_URL.format(mint_address,start_timestamp,end_timestamp,interval)
+    url = str.format(TOKEN_VOLUME_URL,mint_address,start_timestamp,end_timestamp,interval)
 
     try:
         response = requests.get(url, headers=headers, timeout=350)
@@ -479,7 +482,7 @@ def retrieve_transfer_volume_chart(mint_address: str, start_date: str, end_date:
 
         df = pd.DataFrame({'Date': time_stamps, 'Volume': volumes})
 
-        summary_lines = [TRANSFER_VOLUME_HEADER.format(interval, mint_address, start_date, end_date)]
+        summary_lines = [str.format(TRANSFER_VOLUME_HEADER,interval, mint_address, start_date, end_date)]
 
 
         for ts, vol in zip(time_stamps, volumes):
@@ -503,9 +506,9 @@ def retrieve_transfer_volume_chart(mint_address: str, start_date: str, end_date:
         return "\n".join(summary_lines), filename
 
     except requests.exceptions.RequestException as e:
-        return (NETWORK_ERROR.format(e)), None
+        return (str.format(NETWORK_ERROR,e)), None
     except Exception as e:
-        return (UNEXPECTED.format(e)), None
+        return (str.format(UNEXPECTED,e)), None
 
 async def send_tvl_chart(update: Update, context: ContextTypes.DEFAULT_TYPE, program_address: str, resolution: str):
     """
@@ -652,7 +655,7 @@ async def send_token_balance_chart(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(INVALID_WALLET_FORMAT)
         return
 
-    url = TOKEN_BALANCE_CHART_URL.format(wallet_address,days)
+    url = str.format(TOKEN_BALANCE_CHART_URL,wallet_address,days)
 
     try:
         response = requests.get(url, headers=headers, timeout=350)
@@ -664,7 +667,7 @@ async def send_token_balance_chart(update: Update, context: ContextTypes.DEFAULT
             return
 
         dates, values = [], []
-        lines = [TOKEN_BALANCE_HISTORY_HEADER.format(days, wallet_address)]
+        lines = [str.format(TOKEN_BALANCE_HISTORY_HEADER,days, wallet_address)]
 
         for item in data:
             readable = datetime.utcfromtimestamp(item["blockTime"]).strftime('%Y-%m-%d')
@@ -674,7 +677,7 @@ async def send_token_balance_chart(update: Update, context: ContextTypes.DEFAULT
             stake_sol = float(item.get("stakeValueSol", 0))
 
             lines.append(
-                TOKEN_BALANCE_HISTORY_ENTRY.format(
+                str.format(TOKEN_BALANCE_HISTORY_ENTRY,
                     readable,
                     token_val,
                     stake_val,
@@ -705,6 +708,6 @@ async def send_token_balance_chart(update: Update, context: ContextTypes.DEFAULT
         os.remove(filename)
 
     except requests.exceptions.RequestException as e:
-        await update.message.reply_text(NETWORK_ERROR.format(e))
+        await update.message.reply_text(str.format(NETWORK_ERROR,e))
     except Exception as e:
-        await update.message.reply_text((UNEXPECTED.format(e)))
+        await update.message.reply_text((str.format(UNEXPECTED,e)))
