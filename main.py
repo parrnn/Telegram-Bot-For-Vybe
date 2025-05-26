@@ -75,7 +75,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case "❓ Help":
             await update.message.reply_text(HELP, parse_mode="Markdown", disable_web_page_preview=True,
                                             reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True)); return
-        case "🏠 Main Menu":
+        case "🏠 Main menu":
             context.user_data.clear()
             context.user_data["last_menu"] = "main"
             await update.message.reply_text("🏠 *Main Menu*", parse_mode="Markdown",
@@ -132,10 +132,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if await handler(text, context, update):
             return
 
-    await update.message.reply_text(WRONG_INPUT, parse_mode="Markdown",
+    await update.message.reply_text(UNRECOGNIZED_INPUT, parse_mode="Markdown",
                                     disable_web_page_preview=True)
 def main():
-    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+    app = ApplicationBuilder().token("YOUR_BOT_TOKEN_HERE").build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("🤖 Bot is running... Press Ctrl+C to stop.")

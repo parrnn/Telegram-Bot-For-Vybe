@@ -4,11 +4,14 @@ Handles multi-step input logic for VybeBot command flows.
 Each handler processes Telegram user input for specific actions
 like token OHLCV, TVL, NFT portfolios, volume charts, and more.
 """
-from functions.charts import *
-from functions.functions import *
-from functions.evaluates import *
-from constants.menu import *
+import functions.charts as charts
+import functions.functions as functions
+import functions.evaluates as evaluates
+import constants.menu as menu
+import constants.messages as messages
+import functions.datetime as datetime
 import os
+import re
 from telegram import InputFile, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 
@@ -22,28 +25,28 @@ async def handle_back_button(context, update):
 
     if last_menu == "holders":
         context.user_data["last_menu"] = "token"
-        await update.message.reply_text("📊 *Token Analysis Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(token_menu, resize_keyboard=True))
+        await update.message.reply_text("📊 *Token Analysis menu*", parse_mode="Markdown",
+                                        reply_markup=ReplyKeyboardMarkup(menu.token_menu, resize_keyboard=True))
     elif last_menu == "token":
         context.user_data["last_menu"] = "main"
-        await update.message.reply_text("🏠 *Main Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True))
+        await update.message.reply_text("🏠 *Main menu*", parse_mode="Markdown",
+                                        reply_markup=ReplyKeyboardMarkup(menu.main_menu_buttons, resize_keyboard=True))
     else:
-        await update.message.reply_text("🏠 *Main Menu*", parse_mode="Markdown",
-                                        reply_markup=ReplyKeyboardMarkup(main_menu_buttons, resize_keyboard=True))
+        await update.message.reply_text("🏠 *Main menu*", parse_mode="Markdown",
+                                        reply_markup=ReplyKeyboardMarkup(menu.main_menu_buttons, resize_keyboard=True))
 
 async def handle_collection_owners_awaiting(text, context, update):
     if context.user_data.get("awaiting_collection_address"):
         collection_address = text.strip()
 
-        if not is_valid_address(collection_address):
-            await update.message.reply_text(INVALID_COLLECTION_ADDRESS)
+        if not evaluates.is_valid_address(collection_address):
+            await update.message.reply_text(messages.INVALID_COLLECTION_ADDRESS)
             return True
 
-        response = retrieve_nft_collection_owners(collection_address)
+        response = functions.retrieve_nft_collection_owners(collection_address)
 
         if response == "🔍 Not Found (404): No such collection found.":
-            await update.message.reply_text(COLLECTION_NOT_FOUND)
+            await update.message.reply_text(messages.COLLECTION_NOT_FOUND)
             return True
 
         context.user_data["awaiting_collection_address"] = False
@@ -62,7 +65,7 @@ async def handle_collection_owners_awaiting(text, context, update):
 async def handle_program_details_awaiting(text, context, update):
     if context.user_data.get("awaiting_program_address"):
         program_address = text.strip()
-        response = retrieve_program_details(program_address)
+        response = functions.retrieve_program_details(program_address)
 
         if isinstance(response, tuple):
             context.user_data["awaiting_program_address"] = False
@@ -72,7 +75,7 @@ async def handle_program_details_awaiting(text, context, update):
             ])
             await update.message.reply_text(message, parse_mode="Markdown", reply_markup=keyboard)
         else:
-            await update.message.reply_text(INVALID_PROGRAM_ADDRESS, disable_web_page_preview=True)
+            await update.message.reply_text(messages.INVALID_PROGRAM_ADDRESS, disable_web_page_preview=True)
         return True
 
     return False
@@ -81,14 +84,14 @@ async def handle_top_wallets_awaiting(text, context, update):
     if context.user_data.get("awaiting_top_wallets_address"):
         program_address = text.strip()
 
-        if not is_valid_address(program_address):
-            await update.message.reply_text((INVALID_ADDRESS), disable_web_page_preview=True)
+        if not evaluates.is_valid_address(program_address):
+            await update.message.reply_text((messages.INVALID_ADDRESS), disable_web_page_preview=True)
             return True
 
-        program_name = retrieve_program_name(program_address)
+        program_name = functions.retrieve_program_name(program_address)
 
         if not program_name:
-            await update.message.reply_text((INVALID_PROGRAM_ADDRESS),  disable_web_page_preview=True)
+            await update.message.reply_text((messages.INVALID_PROGRAM_ADDRESS),  disable_web_page_preview=True)
             return True
 
         context.user_data["program_address"] = program_address
@@ -96,20 +99,20 @@ async def handle_top_wallets_awaiting(text, context, update):
         context.user_data["awaiting_top_wallets_address"] = False
         context.user_data["awaiting_days"] = True
 
-        await update.message.reply_text((TIMESPAN_1D_30D), parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text((messages.TIMESPAN_1D_30D), parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_days"):
         days = text.strip()
-        if not is_valid_days(days):
-            await update.message.reply_text((INVALID_TIMESPAN_1D_30D), disable_web_page_preview=True)
+        if not evaluates.is_valid_days(days):
+            await update.message.reply_text((messages.INVALID_TIMESPAN_1D_30D), disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_days"] = False
         program_address = context.user_data.get("program_address")
         program_name = context.user_data.get("program_name")
 
-        response = retrieve_top_active_wallets(program_address, days=int(days), limit=10)
+        response = functions.retrieve_top_active_wallets(program_address, days=int(days), limit=10)
         await update.message.reply_text((response), parse_mode="Markdown")
         return True
 
@@ -119,14 +122,14 @@ async def handle_wallet_nft_awaiting(text, context, update):
     if context.user_data.get("awaiting_wallet_nft") or context.user_data.get("awaiting_nft_wallet"):
         wallet = text.strip()
 
-        if not is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
-            await update.message.reply_text(INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
+            await update.message.reply_text(messages.INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_wallet_nft"] = False
         context.user_data["awaiting_nft_wallet"] = False
 
-        response = retrieve_nft_portfolio(wallet)
+        response = functions.retrieve_nft_portfolio(wallet)
         await update.message.reply_text(response, parse_mode="Markdown")
         return True
 
@@ -135,27 +138,27 @@ async def handle_wallet_pnl_awaiting(text, context, update):
     if context.user_data.get("awaiting_wallet_pnl"):
         wallet = text.strip()
 
-        if not is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
-            await update.message.reply_text(INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
+            await update.message.reply_text(messages.INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
             return True
 
         context.user_data["wallet_for_pnl"] = wallet
         context.user_data["awaiting_wallet_pnl"] = False
         context.user_data["awaiting_pnl_days"] = True
 
-        await update.message.reply_text(TIMESPAN_1D_7D_30D, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(messages.TIMESPAN_1D_7D_30D, parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_pnl_days"):
         days = text.strip()
 
         if not days.isdigit() or int(days) not in [1, 7, 30]:
-            await update.message.reply_text(INVALID_TIMESPAN_1D_7D_30D,disable_web_page_preview=True)
+            await update.message.reply_text(messages.INVALID_TIMESPAN_1D_7D_30D,disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_pnl_days"] = False
         wallet = context.user_data.get("wallet_for_pnl")
-        response = retrieve_wallet_pnl_summary(wallet, int(days))
+        response = functions.retrieve_wallet_pnl_summary(wallet, int(days))
 
         if isinstance(response, list):
             for chunk in response:
@@ -171,12 +174,12 @@ async def handle_wallet_portfolio_awaiting(text, context, update):
     if context.user_data.get("awaiting_wallet_portfolio"):
         wallet = text.strip()
 
-        if not is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
-            await update.message.reply_text(INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
+            await update.message.reply_text(messages.INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_wallet_portfolio"] = False
-        response = retrieve_wallet_portfolio_summary(wallet)
+        response = functions.retrieve_wallet_portfolio_summary(wallet)
 
         if isinstance(response, list):
             for chunk in response:
@@ -192,12 +195,12 @@ async def handle_wallet_spl_awaiting(text, context, update):
     if context.user_data.get("awaiting_wallet_spl"):
         wallet = text.strip()
 
-        if not is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
-            await update.message.reply_text(INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
+            await update.message.reply_text(messages.INVALID_WALLET_ADDRESS, disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_wallet_spl"] = False
-        response = retrieve_wallet_token_summary(wallet)
+        response = functions.retrieve_wallet_token_summary(wallet)
 
         if isinstance(response, list):
             for chunk in response:
@@ -213,12 +216,12 @@ async def handle_token_info_awaiting(text, context, update):
     if context.user_data.get("awaiting_token_mint"):
         mint = text.strip()
 
-        if not is_valid_mint(mint):
-            await update.message.reply_text(INVALID_MINT_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_mint(mint):
+            await update.message.reply_text(messages.INVALID_MINT_ADDRESS, disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_token_mint"] = False
-        response = retrieve_token_info(mint)
+        response = functions.retrieve_token_info(mint)
 
         if isinstance(response, tuple):
             message, logo_url = response
@@ -238,35 +241,35 @@ valid_resolutions = ['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '3h', '4h
 async def handle_ohlcv_awaiting(text, context, update):
     if context.user_data.get("awaiting_ohlcv_mint"):
         mint = text.strip()
-        if not is_valid_mint(mint) or not (42 <= len(mint) <= 46):
-            await update.message.reply_text(INVALID_MINT_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_mint(mint) or not (42 <= len(mint) <= 46):
+            await update.message.reply_text(messages.INVALID_MINT_ADDRESS, disable_web_page_preview=True)
             return True
         context.user_data["ohlcv_mint"] = mint
         context.user_data["awaiting_ohlcv_mint"] = False
         context.user_data["awaiting_ohlcv_resolution"] = True
-        await update.message.reply_text(ENTER_RESOLUTION, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(messages.ENTER_RESOLUTION, parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_ohlcv_resolution"):
         resolution = text.strip()
         if resolution not in valid_resolutions:
-            await update.message.reply_text(INVALID_RESOLUTION, disable_web_page_preview=True)
+            await update.message.reply_text(messages.INVALID_RESOLUTION, disable_web_page_preview=True)
             return True
         context.user_data["ohlcv_resolution"] = resolution
         context.user_data["awaiting_ohlcv_resolution"] = False
         context.user_data["awaiting_ohlcv_start"] = True
-        await update.message.reply_text(ENTER_START_DATE, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(messages.ENTER_START_DATE, parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_ohlcv_start"):
         start = text.strip()
-        if not full_datetime_to_unix(start):
-            await update.message.reply_text(INVALID_START_DATE,  disable_web_page_preview=True)
+        if not datetime.full_datetime_to_unix(start):
+            await update.message.reply_text(messages.INVALID_START_DATE,  disable_web_page_preview=True)
             return True
         context.user_data["ohlcv_start"] = start
         context.user_data["awaiting_ohlcv_start"] = False
         context.user_data["awaiting_ohlcv_end"] = True
-        await update.message.reply_text(ENTER_END_DATE, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(messages.ENTER_END_DATE, parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_ohlcv_end"):
@@ -275,15 +278,15 @@ async def handle_ohlcv_awaiting(text, context, update):
         resolution = context.user_data.get("ohlcv_resolution")
         start = context.user_data.get("ohlcv_start")
 
-        if not full_datetime_to_unix(end) or full_datetime_to_unix(end) <= full_datetime_to_unix(start):
-            await update.message.reply_text(INVALID_END_DATE, disable_web_page_preview=True)
+        if not datetime.full_datetime_to_unix(end) or datetime.full_datetime_to_unix(end) <= datetime.full_datetime_to_unix(start):
+            await update.message.reply_text(messages.INVALID_END_DATE, disable_web_page_preview=True)
             return True
 
         for key in list(context.user_data.keys()):
             if key.startswith("awaiting_ohlcv") or key.startswith("ohlcv_"):
                 del context.user_data[key]
 
-        response = retrieve_token_ohlcv_data(
+        response = functions.retrieve_token_ohlcv_data(
             mint_address=mint,
             resolution=resolution,
             start_date=start,
@@ -304,33 +307,33 @@ async def handle_active_users_awaiting(text, context, update):
     if context.user_data.get("awaiting_active_users_address"):
         program_address = text.strip()
 
-        if not is_valid_address(program_address):
-            await update.message.reply_text(INVALID_ADDRESS, disable_web_page_preview=True)
+        if not evaluates.is_valid_address(program_address):
+            await update.message.reply_text(messages.INVALID_ADDRESS, disable_web_page_preview=True)
             return True
 
-        program_name = retrieve_program_name(program_address)
+        program_name = functions.retrieve_program_name(program_address)
         if not program_name:
-            await update.message.reply_text(INVALID_PROGRAM_ADDRESS, disable_web_page_preview=True)
+            await update.message.reply_text(messages.INVALID_PROGRAM_ADDRESS, disable_web_page_preview=True)
             return True
 
         context.user_data["chart_program_address"] = program_address
         context.user_data["awaiting_active_users_address"] = False
         context.user_data["awaiting_active_users_range"] = True
 
-        await update.message.reply_text(ENTER_TIME_RANGE, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(messages.ENTER_TIME_RANGE, parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_active_users_range"):
         time_range = text.strip()
 
-        if not is_valid_range(time_range):
-            await update.message.reply_text(INVALID_TIME_RANGE, disable_web_page_preview=True)
+        if not evaluates.is_valid_range(time_range):
+            await update.message.reply_text(messages.INVALID_TIME_RANGE, disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_active_users_range"] = False
         program_address = context.user_data.get("chart_program_address")
 
-        await send_program_dau_chart(update, context, program_address, time_range)
+        await charts.send_program_dau_chart(update, context, program_address, time_range)
         return True
 
     return False
@@ -339,28 +342,28 @@ async def handle_transactions_awaiting(text, context, update):
     if context.user_data.get("awaiting_tx_address"):
         program_address = text.strip()
 
-        if not is_valid_address(program_address):
-            await update.message.reply_text(INVALID_FORMAT, disable_web_page_preview=True)
+        if not evaluates.is_valid_address(program_address):
+            await update.message.reply_text(messages.INVALID_FORMAT, disable_web_page_preview=True)
             return True
 
         context.user_data["tx_program_address"] = program_address
         context.user_data["awaiting_tx_address"] = False
         context.user_data["awaiting_tx_range"] = True
 
-        await update.message.reply_text(ENTER_TRANSACTION_RESOLUTION, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(messages.ENTER_TRANSACTION_RESOLUTION, parse_mode="Markdown", disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_tx_range"):
         time_range = text.strip()
 
-        if not is_valid_range(time_range):
-            await update.message.reply_text(INVALID_TRANSACTION_RESOLUTION, disable_web_page_preview=True)
+        if not evaluates.is_valid_range(time_range):
+            await update.message.reply_text(messages.INVALID_TRANSACTION_RESOLUTION, disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_tx_range"] = False
         program_address = context.user_data.get("tx_program_address")
 
-        await send_program_tx_chart(update, context, program_address, time_range)
+        await charts.send_program_tx_chart(update, context, program_address, time_range)
         return True
 
     return False
@@ -368,8 +371,8 @@ async def handle_transactions_awaiting(text, context, update):
 async def handle_daily_top_holders_awaiting(text, context, update):
     if context.user_data.get("awaiting_daily_holder_mint"):
         mint = text.strip()
-        if not is_valid_mint(mint):
-            await update.message.reply_text(INVALID_MINT_ADDRESS,
+        if not evaluates.is_valid_mint(mint):
+            await update.message.reply_text(messages.INVALID_MINT_ADDRESS,
                                             disable_web_page_preview=True,)
             return True
 
@@ -377,14 +380,14 @@ async def handle_daily_top_holders_awaiting(text, context, update):
         context.user_data["awaiting_daily_holder_mint"] = False
         context.user_data["awaiting_daily_holder_start"] = True
 
-        await update.message.reply_text(ENTER_START_DATE, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_START_DATE, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_daily_holder_start"):
         start_date = text.strip()
-        if not full_datetime_to_unix(start_date):
-            await update.message.reply_text(INVALID_START_DATE,
+        if not datetime.full_datetime_to_unix(start_date):
+            await update.message.reply_text(messages.INVALID_START_DATE,
                                             disable_web_page_preview=True)
             return True
 
@@ -392,7 +395,7 @@ async def handle_daily_top_holders_awaiting(text, context, update):
         context.user_data["awaiting_daily_holder_start"] = False
         context.user_data["awaiting_daily_holder_end"] = True
 
-        await update.message.reply_text(ENTER_END_DATE, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_END_DATE, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
@@ -400,15 +403,15 @@ async def handle_daily_top_holders_awaiting(text, context, update):
         end_date = text.strip()
         start = context.user_data.get("daily_holder_start")
 
-        if not full_datetime_to_unix(end_date) or full_datetime_to_unix(end_date) <= full_datetime_to_unix(start):
-            await update.message.reply_text(INVALID_END_DATE,
+        if not datetime.full_datetime_to_unix(end_date) or datetime.full_datetime_to_unix(end_date) <= datetime.full_datetime_to_unix(start):
+            await update.message.reply_text(messages.INVALID_END_DATE,
                                             disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_daily_holder_end"] = False
         mint = context.user_data["daily_holder_mint"]
 
-        message, chart_path = retrieve_daily_top_holders_chart(mint, start, end_date)
+        message, chart_path = charts.retrieve_daily_top_holders_chart(mint, start, end_date)
 
         await update.message.reply_text(message, parse_mode="Markdown")
 
@@ -424,8 +427,8 @@ async def handle_daily_top_holders_awaiting(text, context, update):
 async def handle_top_token_holders_awaiting(text, context, update):
     if context.user_data.get("awaiting_holder_mint"):
         mint = text.strip()
-        if not is_valid_mint(mint) or not (42 <= len(mint) <= 46):
-            await update.message.reply_text(INVALID_MINT_ADDRESS,
+        if not evaluates.is_valid_mint(mint) or not (42 <= len(mint) <= 46):
+            await update.message.reply_text(messages.INVALID_MINT_ADDRESS,
                                             disable_web_page_preview=True)
             return True
 
@@ -433,7 +436,7 @@ async def handle_top_token_holders_awaiting(text, context, update):
         context.user_data["awaiting_holder_mint"] = False
         context.user_data["awaiting_sort_criteria"] = True
 
-        await update.message.reply_text(SORT_CRITERIA, parse_mode="Markdown", reply_markup=sort_criteria_buttons)
+        await update.message.reply_text(messages.SORT_CRITERIA, parse_mode="Markdown", reply_markup=menu.sort_criteria_buttons)
         return True
 
     elif context.user_data.get("awaiting_sort_criteria"):
@@ -441,7 +444,7 @@ async def handle_top_token_holders_awaiting(text, context, update):
         valid_criteria = ['rank', 'ownerName', 'ownerAddress', 'valueUsd', 'balance', 'percentageOfSupplyHeld']
 
         if sort not in valid_criteria:
-            await update.message.reply_text(INVALID_SORT_CRITERIA,
+            await update.message.reply_text(messages.INVALID_SORT_CRITERIA,
                                             disable_web_page_preview=True)
             return True
 
@@ -449,13 +452,13 @@ async def handle_top_token_holders_awaiting(text, context, update):
         context.user_data["awaiting_sort_criteria"] = False
         context.user_data["awaiting_sort_order"] = True
 
-        await update.message.reply_text(SORT_ORDER, parse_mode="Markdown", reply_markup=sort_order_buttons)
+        await update.message.reply_text(messages.SORT_ORDER, parse_mode="Markdown", reply_markup=menu.sort_order_buttons)
         return True
 
     elif context.user_data.get("awaiting_sort_order"):
         order = text.strip().lower()
         if order not in ['asc', 'desc']:
-            await update.message.reply_text(INVALID_SORT_ORDER,
+            await update.message.reply_text(messages.INVALID_SORT_ORDER,
                                             disable_web_page_preview=True)
             return True
 
@@ -463,13 +466,13 @@ async def handle_top_token_holders_awaiting(text, context, update):
         context.user_data["awaiting_sort_order"] = False
         context.user_data["awaiting_holder_limit"] = True
 
-        await update.message.reply_text(TOP_HOLDERS_COUNT, parse_mode="Markdown",
+        await update.message.reply_text(messages.TOP_HOLDERS_COUNT, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_holder_limit"):
         if not text.strip().isdigit() or int(text.strip()) <= 0:
-            await update.message.reply_text(INVALID_HOLDERS_COUNT,
+            await update.message.reply_text(messages.INVALID_HOLDERS_COUNT, parse_mode="Markdown",
                                             disable_web_page_preview=True)
             return True
 
@@ -479,15 +482,15 @@ async def handle_top_token_holders_awaiting(text, context, update):
         order = context.user_data["sort_order"]
 
         context.user_data["awaiting_holder_limit"] = False
-        result = retrieve_top_token_holders(mint, sort, order, limit)
+        result = functions.retrieve_top_token_holders(mint, sort, order, limit)
 
         await update.message.reply_text(result, parse_mode="Markdown")
 
         context.user_data["last_menu"] = "token"
         await update.message.reply_text(
-            "📊 *Token Analysis Menu*",
+            "📊 *Token Analysis menu*",
             parse_mode="Markdown",
-            reply_markup=ReplyKeyboardMarkup(token_menu, resize_keyboard=True)
+            reply_markup=ReplyKeyboardMarkup(menu.token_menu, resize_keyboard=True)
         )
         return True
 
@@ -497,8 +500,8 @@ async def handle_volume_awaiting(text, context, update):
     if context.user_data.get("awaiting_volume_mint"):
         mint = text.strip()
 
-        if not is_valid_mint(mint) or not (42 <= len(mint) <= 46):
-            await update.message.reply_text(INVALID_MINT_ADDRESS,
+        if not evaluates.is_valid_mint(mint) or not (42 <= len(mint) <= 46):
+            await update.message.reply_text(messages.INVALID_MINT_ADDRESS,
                                             disable_web_page_preview=True,)
             return True
 
@@ -506,15 +509,15 @@ async def handle_volume_awaiting(text, context, update):
         context.user_data["awaiting_volume_mint"] = False
         context.user_data["awaiting_volume_start"] = True
 
-        await update.message.reply_text(ENTER_START_DATE, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_START_DATE, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
     elif context.user_data.get("awaiting_volume_start"):
         start_date = text.strip()
 
-        if not full_datetime_to_unix(start_date):
-            await update.message.reply_text(INVALID_START_DATE,
+        if not datetime.full_datetime_to_unix(start_date):
+            await update.message.reply_text(messages.INVALID_START_DATE,
                                             disable_web_page_preview=True)
             return True
 
@@ -522,7 +525,7 @@ async def handle_volume_awaiting(text, context, update):
         context.user_data["awaiting_volume_start"] = False
         context.user_data["awaiting_volume_end"] = True
 
-        await update.message.reply_text(ENTER_END_DATE, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_END_DATE, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
@@ -530,8 +533,8 @@ async def handle_volume_awaiting(text, context, update):
         end_date = text.strip()
         start = context.user_data["volume_start"]
 
-        if not full_datetime_to_unix(end_date) or full_datetime_to_unix(end_date) <= full_datetime_to_unix(start):
-            await update.message.reply_text(INVALID_END_DATE,
+        if not datetime.full_datetime_to_unix(end_date) or datetime.full_datetime_to_unix(end_date) <= datetime.full_datetime_to_unix(start):
+            await update.message.reply_text(messages.INVALID_END_DATE,
                                             disable_web_page_preview=True)
             return True
 
@@ -539,7 +542,7 @@ async def handle_volume_awaiting(text, context, update):
         context.user_data["awaiting_volume_end"] = False
         context.user_data["awaiting_volume_interval"] = True
 
-        await update.message.reply_text(ENTER_INTERVAL, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_INTERVAL, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
@@ -547,7 +550,7 @@ async def handle_volume_awaiting(text, context, update):
         interval = text.strip().lower()
 
         if interval not in ["hour", "day"]:
-            await update.message.reply_text(INVALID_INTERVAL,
+            await update.message.reply_text(messages.INVALID_INTERVAL,
                                             disable_web_page_preview=True)
             return True
 
@@ -555,7 +558,7 @@ async def handle_volume_awaiting(text, context, update):
         start = context.user_data.get("volume_start")
         end = context.user_data.get("volume_end")
 
-        summary, filename = retrieve_transfer_volume_chart(mint, start, end, interval)
+        summary, filename = charts.retrieve_transfer_volume_chart(mint, start, end, interval)
 
         for key in list(context.user_data.keys()):
             if key.startswith("volume_") or key.startswith("awaiting_volume_"):
@@ -580,8 +583,8 @@ async def handle_tvl_awaiting(text, context, update):
     if context.user_data.get("awaiting_tvl_address"):
         address = text.strip()
 
-        if not is_valid_address(address):
-            await update.message.reply_text(INVALID_ADDRESS,
+        if not evaluates.is_valid_address(address):
+            await update.message.reply_text(messages.INVALID_ADDRESS,
                                             disable_web_page_preview=True)
             return True
 
@@ -589,7 +592,7 @@ async def handle_tvl_awaiting(text, context, update):
         context.user_data["awaiting_tvl_address"] = False
         context.user_data["awaiting_tvl_resolution"] = True
 
-        await update.message.reply_text(ENTER_TVL_RESOLUTION, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_TVL_RESOLUTION, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
@@ -597,14 +600,14 @@ async def handle_tvl_awaiting(text, context, update):
         resolution = text.strip()
 
         if not re.fullmatch(r"\d+(s|h|d|w)", resolution):
-            await update.message.reply_text(INVALID_TVL_RESOLUTION,
+            await update.message.reply_text(messages.INVALID_TVL_RESOLUTION,
                                             disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_tvl_resolution"] = False
         address = context.user_data.get("tvl_address")
 
-        await send_tvl_chart(update, context, address, resolution)
+        await charts.send_tvl_chart(update, context, address, resolution)
         return True
 
     return False
@@ -613,8 +616,8 @@ async def handle_token_balances_awaiting(text, context, update):
     if context.user_data.get("awaiting_balances_wallet"):
         wallet = text.strip()
 
-        if not is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
-            await update.message.reply_text(INVALID_WALLET_ADDRESS,
+        if not evaluates.is_valid_address(wallet) or not (42 <= len(wallet) <= 46):
+            await update.message.reply_text(messages.INVALID_WALLET_ADDRESS,
                                             disable_web_page_preview=True)
             return True
 
@@ -622,7 +625,7 @@ async def handle_token_balances_awaiting(text, context, update):
         context.user_data["awaiting_balances_wallet"] = False
         context.user_data["awaiting_balances_days"] = True
 
-        await update.message.reply_text(ENTER_BALANCE_DAYS, parse_mode="Markdown",
+        await update.message.reply_text(messages.ENTER_BALANCE_DAYS, parse_mode="Markdown",
                                         disable_web_page_preview=True)
         return True
 
@@ -632,13 +635,13 @@ async def handle_token_balances_awaiting(text, context, update):
             if not (1 <= days <= 30):
                 raise ValueError()
         except ValueError:
-            await update.message.reply_text(INVALID_TIMESPAN_1D_30D,
+            await update.message.reply_text(messages.INVALID_TIMESPAN_1D_30D,
                                             disable_web_page_preview=True)
             return True
 
         context.user_data["awaiting_balances_days"] = False
         wallet = context.user_data.get("balances_wallet")
-        await send_token_balance_chart(update, context, wallet, days)
+        await charts.send_token_balance_chart(update, context, wallet, days)
         return True
 
     return False

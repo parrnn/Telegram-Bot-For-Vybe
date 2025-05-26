@@ -12,3 +12,4 @@ PROGRAM_TXS_URL="https://api.vybenetwork.xyz/program/{}/transactions-count-ts?ra
 DAILY_TOP_TOKEN_HOLDERS_URL="https://api.vybenetwork.xyz/token/{}/holders-ts?startTime={}&endTime={}"
 TOKEN_VOLUME_URL="https://api.vybenetwork.xyz/token/{}/transfer-volume?startTime={}&endTime={}&interval={}"
 TOKEN_BALANCE_CHART_URL="https://api.vybenetwork.xyz/account/token-balance-ts/{}?days={}"
+PROGRAM_TVL="https://api.vybenetwork.xyz/program/{}/tvl?resolution={}"

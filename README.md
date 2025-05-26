@@ -63,7 +63,7 @@ bot_token = "YOUR_BOT_TOKEN_HERE"
 ```python
 headers = {
       "accept": "application/json",
-      "X-API-KEY": "YOUR_API_KEY_HERE"
+      "X-API-KEY": "YOUR_API_KEY"
   }
 ```
 
@@ -97,8 +97,8 @@ headers = {
 
 ```
 vybebot/
-├── Main.py                  # Main entry point for the Telegram bot (message routing)
-├── Handlers.py              # Awaiting handlers and user input flows
+├── main.py                  # Main entry point for the Telegram bot (message routing)
+├── handlers.py              # Awaiting handlers and user input flows
 ├── functions/               # Core logic split into functional modules
 │   ├── charts.py            # Chart generation (TVL, Txs, OHLCV, etc.)
 │   ├── converts.py          # Safe type conversion helpers (e.g. to_float_safe)
@@ -108,10 +108,10 @@ vybebot/
 ├── constants/               # Reusable constants and layouts
 │   ├── menu.py              # ReplyKeyboard layout for menus and submenus
 │   └── messages.py          # Reusable message templates and error strings
-├── Globals/
+├── globals/
 │   ├── preferences.py       # API headers (Vybe API key, request config)
 │   └── urls.py              # Vybe API endpoint templates
-├── Tutorial/
+├── tutorial/
 │   └── vybe.gif             # GIF demo of the bot in action
 ├── requirements.txt         # Python dependency list
 ├── LICENSE                  # Project license

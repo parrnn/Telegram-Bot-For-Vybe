@@ -1,12 +1,18 @@
 import requests
 import json
 from typing import Union, Tuple
-from constants.messages import *
-from globals.preferences import *
-from functions.evaluates import *
-from functions.converts import *
-from functions.datetime import *
-from globals.urls import *
+import re
+import constants.messages as messages
+import globals.preferences as preferences
+import functions.evaluates as evaluates
+import functions.converts as converts
+import functions.datetime as datetime
+import globals.urls as urls
+
+emoji_numbers = {
+            1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
+            6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
+        }
 
 def retrieve_nft_collection_owners(collection_address: str) -> Union[str, list]:
     """
@@ -43,30 +49,27 @@ def retrieve_nft_collection_owners(collection_address: str) -> Union[str, list]:
         ...
     """
     if not re.fullmatch(r"[a-zA-Z0-9]+", collection_address):
-        return INVALID_COLLECTION_ADDRESS
-    url = str.format(COLLECTION_URL, collection_address)
+        return messages.INVALID_COLLECTION_ADDRESS
+    url = str.format(urls.COLLECTION_URL, collection_address)
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
 
         if response.status_code == 403:
-            return STATUS_CODE_403
+            return messages.STATUS_CODE_403
         elif response.status_code == 404:
-            return STATUS_CODE_404
+            return messages.STATUS_CODE_404
 
         response.raise_for_status()
         data = response.json()
 
         owners = data.get("data", [])
         if not owners:
-            return NO_OWNERS_FOUND
+            return messages.NO_OWNERS_FOUND
 
         top_owners = owners[:10]
 
-        emoji_numbers = {
-            1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
-            6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
-        }
+
 
         short_address = f"{collection_address[:6]}...{collection_address[-4:]}"
         result = [f"📦 *Top Owners of:* {short_address}\n"]
@@ -93,11 +96,12 @@ def retrieve_nft_collection_owners(collection_address: str) -> Union[str, list]:
         return chunks if len(chunks) > 1 else chunks[0]
 
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except ValueError:
-        return VALUE_ERROR
+        return messages.VALUE_ERROR
     except Exception as e:
-        return (str.format(UNEXPECTED,e))
+        return (str.format(messages.NETWORK_ERROR,e))
+
 def retrieve_program_details(program_address: str) -> Tuple[str, str]:
     """
     Fetch and format the details of a specific program from Vybe Network API.
@@ -115,34 +119,30 @@ def retrieve_program_details(program_address: str) -> Tuple[str, str]:
             - Second element: The URL string to the program's logo.
             - If an error occurs, returns a single error message string instead of a tuple.
 
-    Raises:
-        requests.exceptions.RequestException:
-            If there is a network error during the API call.
-        json.JSONDecodeError:
-            If the API response is not valid JSON.
-        Exception:
-            For any unexpected error during data retrieval or formatting.
-
     Example:
         >>> retrieve_program_details('9AefkXv83z...')
         (
-            \"📌 *Program Overview*\\n\\n🏛️ *Entity:* Orca\\n📛 *Name:* Orca\\n...\",
-            \"https://storage.googleapis.com/.../orca_logo.png\"
+            "📌 *Program Overview*\n\n🏛️ *Entity:* Orca\n📛 *Name:* Orca\n...",
+            "https://storage.googleapis.com/.../orca_logo.png"
         )
     """
+    if not evaluates.is_valid_address(program_address):
+        return messages.INVALID_ADDRESS
 
-    if not is_valid_address(program_address):
-        return INVALID_ADDRESS
-
-    url = str.format(PROGRAM_DETAILS_URL, program_address)
+    url = str.format(urls.PROGRAM_DETAILS_URL, program_address)
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
 
-        if response.status_code in [400, 403, 404]:
-            return INACCESSIBLE_PROGRAM_ADDRESS
+        if response.status_code == 400:
+            return messages.INACCESSIBLE_PROGRAM_ADDRESS
+        elif response.status_code == 403:
+            return messages.INACCESSIBLE_PROGRAM_ADDRESS
+        elif response.status_code == 404:
+            return messages.INACCESSIBLE_PROGRAM_ADDRESS
 
         response.raise_for_status()
+
         data = response.json()
 
         entity_name = data.get("entityName", "N/A")
@@ -156,21 +156,28 @@ def retrieve_program_details(program_address: str) -> Tuple[str, str]:
 
         labels_text = ", ".join(labels) if labels else "None"
 
-        formatted_message = str.format(PROGRAM_DETAIL_MESSAGE,
-            entity_name,
-            friendly_name,
-            labels_text,
-            dau,
-            new_users,
-            txns,
-            description or 'N/A'
-        )
+        dau_formatted = f"{dau:,}" if isinstance(dau, int) else dau
+        new_users_formatted = f"{new_users:,}" if isinstance(new_users, int) else new_users
+        txns_formatted = f"{txns:,}" if isinstance(txns, int) else txns
+
+        formatted_message = f"📌 *Program Overview*\n\n" \
+                            f"🏛️ *Entity:* {entity_name}\n" \
+                            f"📛 *Name:* {friendly_name}\n" \
+                            f"🏷️ *Labels:* {labels_text}\n\n" \
+                            f"📊 *Stats (24h)*\n" \
+                            f"👥 Active Users: {dau_formatted}\n" \
+                            f"🆕 New Users: {new_users_formatted}\n" \
+                            f"🔁 Transactions: {txns_formatted}\n\n" \
+                            f"📖 *Description:*\n{description or 'N/A'}"
 
         return formatted_message, logo_url
 
-
-    except Exception:
-        return SOMETHING_WENT_WRONG
+    except requests.exceptions.RequestException as e:
+        return messages.SOMETHING_WENT_WRONG
+    except json.JSONDecodeError as e:
+        return messages.JSON_ERROR
+    except Exception as e:
+        return messages.SOMETHING_WENT_WRONG
 def retrieve_program_name(program_address: str) -> Union[str, None]:
     """
     Retrieve the display name of a program from Vybe Network API.
@@ -201,10 +208,10 @@ def retrieve_program_name(program_address: str) -> Union[str, None]:
         'Orca'
     """
 
-    url = str.format(PROGRAM_DETAILS_URL, program_address)
+    url = str.format(urls.PROGRAM_DETAILS_URL, program_address)
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
         if response.status_code in [400, 403, 404]:
             return None
         response.raise_for_status()
@@ -258,35 +265,30 @@ def retrieve_top_active_wallets(program_address: str, days: int = 1, limit: int 
         ...
     """
 
-    if not is_valid_address(program_address):
-        return INVALID_FORMAT
+    if not evaluates.is_valid_address(program_address):
+        return messages.INVALID_FORMAT
 
-    if not is_valid_days(str(days)):
-        return INVALID_TIMESPAN_1D_30D
+    if not evaluates.is_valid_days(str(days)):
+        return messages.INVALID_TIMESPAN_1D_30D
 
-    if not is_valid_limit(str(limit)):
-        return INVALID_LIMIT
+    if not evaluates.is_valid_limit(str(limit)):
+        return messages.INVALID_LIMIT
 
     program_name = retrieve_program_name(program_address)
     if not program_name:
-        return PROGRAM_NOT_FOUND
+        return messages.PROGRAM_NOT_FOUND
 
-    url = str.format( TOP_ACTIVE_WALLETS_URL, program_address,days,limit)
+    url = str.format( urls.TOP_ACTIVE_WALLETS_URL, program_address,days,limit)
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
         response.raise_for_status()
         data = response.json().get("data", [])
 
         if not data:
-            return NO_DATA_FOUND
+            return messages.NO_DATA_FOUND
 
-        emoji_numbers = {
-            1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
-            6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
-        }
-
-        output_lines = [str.format(TOP_ACTIVE_WALLETS_MESSAGE,limit, program_name, days)]
+        output_lines = [str.format(messages.TOP_ACTIVE_WALLETS_TEMPLATE,limit, program_name, days)]
 
         for i, user in enumerate(data, 1):
             emoji = emoji_numbers.get(i, f"*{i}.*")
@@ -299,9 +301,9 @@ def retrieve_top_active_wallets(program_address: str, days: int = 1, limit: int 
 
 
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except Exception as e:
-        return (str.format(UNEXPECTED,e))
+        return (str.format(messages.UNEXPECTED_ERROR,e))
 
 
 def retrieve_nft_portfolio(wallet_address: str) -> str:
@@ -323,13 +325,13 @@ def retrieve_nft_portfolio(wallet_address: str) -> str:
         json.JSONDecodeError: If the API response is not valid JSON.
         Exception: For any unexpected error during data processing.
     """
-    if not is_valid_address(wallet_address):
+    if not evaluates.is_valid_address(wallet_address):
         return "❌ Invalid wallet address! Only alphanumeric characters allowed."
 
-    url = str.format(NFT_PORTFOLIO_URL, wallet_address)
+    url = str.format(urls.NFT_PORTFOLIO_URL, wallet_address)
 
     try:
-        response = requests.get(url, headers=headers, timeout=20)
+        response = requests.get(url, headers=preferences.headers, timeout=20)
 
         if response.status_code == 404:
             return "🚫 Wallet not found or has no NFT data."
@@ -337,10 +339,10 @@ def retrieve_nft_portfolio(wallet_address: str) -> str:
         response.raise_for_status()
         data = response.json()
 
-        output_lines = [str.format(NFT_PORTFOLIO_MESSAGE,
+        output_lines = [str.format(messages.NFT_PORTFOLIO_TEMPLATE,
             data.get('ownerAddress', 'N/A'),
-            to_float_safe(data.get('totalSol')),
-            to_float_safe(data.get('totalUsd')),
+            converts.to_float_safe(data.get('totalSol')),
+            converts.to_float_safe(data.get('totalUsd')),
             data.get('totalNftCollectionCount', 0)
         )]
 
@@ -353,13 +355,13 @@ def retrieve_nft_portfolio(wallet_address: str) -> str:
                 name = nft.get("name", "N/A")
                 collection = nft.get("collectionAddress", "N/A")
                 items = nft.get("totalItems", 0)
-                val_sol = to_float_safe(nft.get("valueSol"))
-                val_usd = to_float_safe(nft.get("valueUsd"))
-                price_sol = to_float_safe(nft.get("priceSol"))
-                price_usd = to_float_safe(nft.get("priceUsd"))
+                val_sol = converts.to_float_safe(nft.get("valueSol"))
+                val_usd = converts.to_float_safe(nft.get("valueUsd"))
+                price_sol = converts.to_float_safe(nft.get("priceSol"))
+                price_usd = converts.to_float_safe(nft.get("priceUsd"))
 
                 output_lines.append(
-                    str.format(NFT_PORTFOLIO_COLLECTION_MESSAGE,
+                    str.format(messages.NFT_PORTFOLIO_COLLECTION_MESSAGE,
                         name,
                         collection,
                         items,
@@ -373,11 +375,11 @@ def retrieve_nft_portfolio(wallet_address: str) -> str:
         return "\n".join(output_lines)
 
     except requests.exceptions.RequestException as e:
-        return str.format(NETWORK_ERROR,e)
+        return str.format(messages.NETWORK_ERROR,e)
     except json.JSONDecodeError:
-        return JSON_ERROR
+        return messages.JSON_ERROR
     except Exception as e:
-        return str.format(UNEXPECTED,e)
+        return str.format(messages.UNEXPECTED_ERROR,e)
 
 def retrieve_wallet_pnl_summary(wallet_address: str, days: int) -> list[str] | str:
     """
@@ -418,23 +420,23 @@ def retrieve_wallet_pnl_summary(wallet_address: str, days: int) -> list[str] | s
         - The function automatically splits long outputs into multiple chunks.
     """
 
-    if not is_valid_address(wallet_address):
-        return INVALID_WALLET_FORMAT
+    if not evaluates.is_valid_address(wallet_address):
+        return messages.INVALID_WALLET_FORMAT
 
-    url = str.format(WALLET_PNL_URL, wallet_address,days)
+    url = str.format(urls.WALLET_PNL_URL, wallet_address,days)
 
     try:
-        response = requests.get(url, headers=headers, timeout=1250)
+        response = requests.get(url, headers=preferences.headers, timeout=1250)
         if response.status_code == 404:
-            return WALLET_NOT_FOUND
+            return messages.WALLET_NOT_FOUND
 
         response.raise_for_status()
         data = response.json()
 
         summary = data.get("summary", {})
         output = [
-            str.format(PNL_SUMMARY_HEADER,days),
-            str.format(PNL_SUMMARY_BODY,
+            str.format(messages.PNL_SUMMARY_HEADER,days),
+            str.format(messages.PNL_SUMMARY_TEMPLATE,
                 wallet_address,
                 float(summary.get('realizedPnlUsd', 0)),
                 float(summary.get('unrealizedPnlUsd', 0)),
@@ -456,7 +458,7 @@ def retrieve_wallet_pnl_summary(wallet_address: str, days: int) -> list[str] | s
                 sells = token.get("sells", {})
 
                 output.append(
-                    str.format(PNL_TOKEN_ENTRY,
+                    str.format(messages.PNL_TOKEN_ENTRY,
                         symbol,
                         realized,
                         unrealized,
@@ -481,73 +483,41 @@ def retrieve_wallet_pnl_summary(wallet_address: str, days: int) -> list[str] | s
         return chunks
 
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except Exception as e:
-        return (str.format(UNEXPECTED,e))
+        return (str.format(messages.UNEXPECTED_ERROR,e))
 
 
 def retrieve_wallet_portfolio_summary(wallet_address: str) -> str:
-    """
-    Fetch and format the total portfolio summary for a given wallet, including token and NFT values.
-
-    Aggregates the total USD value of tokens and NFTs held by the wallet,
-    and returns a formatted summary displaying token value, NFT value, and the combined portfolio total.
-
-    Args:
-        wallet_address (str):
-            The public address of the wallet (42–46 alphanumeric characters).
-
-    Returns:
-        str:
-            A formatted summary of the wallet's portfolio in USD, or an error message
-            if the wallet is invalid, not found, or has no recorded portfolio activity.
-
-    Raises:
-        requests.exceptions.RequestException:
-            If a network error occurs during the API call.
-        json.JSONDecodeError:
-            If the API response is not valid JSON.
-        Exception:
-            For unexpected errors during portfolio aggregation.
-
-    Example:
-        >>> retrieve_wallet_portfolio_summary('9xjT3kghPz...')
-        📊 *Portfolio Summary*
-        👛 Wallet: `9xjT3kghPz...`
-
-        💼 *Token Value:* $3,254.32
-        🎨 *NFT Value:* $1,204.50
-        🧾 *Total Portfolio:* 💵 $4,458.82
-
-    Notes:
-        - If no valid portfolio data is found for the wallet, an error message is returned instead of a summary.
-        - Internally makes three API calls: portfolio check, token balance, and NFT balance.
-    """
-    if not is_valid_address(wallet_address):
-        return INVALID_WALLET_ADDRESS
+    if not evaluates.is_valid_address(wallet_address):
+        return messages.INVALID_WALLET_ADDRESS
 
     def fetch_json(url: str) -> dict | None:
         try:
-            response = requests.get(url, headers=headers, timeout=250)
+            response = requests.get(url, headers=preferences.headers, timeout=20)
             if response.status_code == 404:
                 return None
             response.raise_for_status()
             return response.json()
         except (requests.exceptions.RequestException, json.JSONDecodeError):
             return None
-    check_url = str.format(WALLET_PNL_URL, wallet_address,1)
+
+    check_url = str.format(urls.WALLET_PNL_URL, wallet_address, 1)
+    token_url = str.format(urls.WALLET_TOKEN_BALANCE_URL, wallet_address)
+    nft_url   = str.format(urls.NFT_PORTFOLIO_URL, wallet_address)
+
     check_data = fetch_json(check_url)
-
     if not check_data or (not check_data.get("summary") and not check_data.get("tokenMetrics")):
-        return WALLET_NOT_FOUND_FOR_PORTFOLIO
-    token_data = str.format(WALLET_TOKEN_BALANCE_URL,wallet_address)
-    nft_data = fetch_json(NFT_PORTFOLIO_URL.format(wallet_address))
+        return messages.WALLET_NOT_FOUND_FOR_PORTFOLIO
 
-    token_usd = float(token_data.get("totalTokenValueUsd", 0)) if token_data else 0.0
-    nft_usd = float(nft_data.get("totalUsd", 0)) if nft_data else 0.0
-    total = token_usd + nft_usd
+    token_data = fetch_json(token_url)
+    nft_data   = fetch_json(nft_url)
 
-    return str.format(PORTFOLIO_SUMMARY_MESSAGE,wallet_address, token_usd, nft_usd, total)
+    token_usd = float(token_data.get("totalTokenValueUsd", 0)) if isinstance(token_data, dict) else 0.0
+    nft_usd= float(nft_data.get("totalUsd", 0)) if isinstance(nft_data, dict) else 0.0
+    total= token_usd + nft_usd
+
+    return str.format(messages.PORTFOLIO_SUMMARY_MESSAGE, wallet_address, token_usd, nft_usd, total)
 
 def retrieve_wallet_token_summary(wallet_address: str) -> str | list[str]:
     """
@@ -596,27 +566,27 @@ def retrieve_wallet_token_summary(wallet_address: str) -> str | list[str]:
         except (ValueError, TypeError):
             return default
 
-    if not is_valid_address(wallet_address):
-        return INVALID_WALLET_ADDRESS
-    url = str.format(WALLET_TOKEN_BALANCE_URL, wallet_address)
+    if not evaluates.is_valid_address(wallet_address):
+        return messages.INVALID_WALLET_ADDRESS
+    url = str.format(urls.WALLET_TOKEN_BALANCE_URL, wallet_address)
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
         if response.status_code == 404:
-            return ERROR_NO_WALLET_TOKEN_DATA
+            return messages.ERROR_NO_WALLET_TOKEN_DATA
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except json.JSONDecodeError:
-        return JSON_ERROR
+        return messages.JSON_ERROR
 
     if not data.get("data"):
-        return WARN_NO_TOKEN_BALANCES
+        return messages.WARN_NO_TOKEN_BALANCES
 
     output = []
     output.append(
-        str.format(WALLET_TOKEN_SUMMARY,
+        str.format(messages.WALLET_TOKEN_SUMMARY,
             data.get('ownerAddress', 'N/A'),
             to_float_safe(data.get('totalTokenValueUsd')),
             to_float_safe(data.get('stakedSolBalanceUsd')),
@@ -636,7 +606,7 @@ def retrieve_wallet_token_summary(wallet_address: str) -> str | list[str]:
         emoji = "🟢" if value_change > 0 else "🔴" if value_change < 0 else "⚪️"
 
         output.append(
-            str.format(TOKEN_DETAIL,
+            str.format(messages.TOKEN_DETAIL_TEMPLATE,
                 emoji=emoji,
                 symbol=symbol,
                 name=name,
@@ -684,24 +654,24 @@ def retrieve_token_info(mint_address: str) -> tuple[str, str] | str:
     Example:
         >>> retrieve_token_info('So11111111111111111111111111111111111111112')
     """
-    if not is_valid_mint(mint_address):
-        return INVALID_MINT_ADDRESS
+    if not evaluates.is_valid_mint(mint_address):
+        return messages.INVALID_MINT_ADDRESS
 
-    url = str.format(TOKEN_INFO_URL, mint_address)
+    url = str.format(urls.TOKEN_INFO_URL, mint_address)
 
     try:
-        response = requests.get(url, headers=headers, timeout=20)
+        response = requests.get(url, headers=preferences.headers, timeout=20)
 
         if response.status_code == 404:
-            return TOKEN_NOT_FOUND
+            return messages.TOKEN_NOT_FOUND
 
         response.raise_for_status()
         data = response.json()
 
-        update_time = data.get("updateTime")
-        update_str = datetime.utcfromtimestamp(update_time).strftime('%Y-%m-%d %H:%M:%S') if update_time else "N/A"
+        update_time = data.get("updatetime")
+        update_str = datetime.datetime.utcfromtimestamp(update_time).strftime('%Y-%m-%d %H:%M:%S') if update_time else "N/A"
 
-        final_message = str.format(FULL_TOKEN_INFO_MESSAGE,
+        final_message = str.format(messages.TOKEN_INFO_TEMPLATE,
             symbol=data.get('symbol', 'N/A'),
             name=data.get('name', 'N/A'),
             mint=data.get('mintAddress', 'N/A'),
@@ -714,17 +684,17 @@ def retrieve_token_info(mint_address: str) -> tuple[str, str] | str:
             subcategory=data.get('subcategory') or '—',
             last_updated=update_str,
             supply=float(data.get('currentSupply', 0)),
-            market_cap=format_number_human_readable(data.get('marketCap', 0)),
-            volume_token=format_number_human_readable(data.get('tokenAmountVolume24h', 0)),
-            volume_usd=format_number_human_readable(data.get('usdValueVolume24h', 0))
+            market_cap=datetime.format_number_human_readable(data.get('marketCap', 0)),
+            volume_token=datetime.format_number_human_readable(data.get('tokenAmountVolume24h', 0)),
+            volume_usd=datetime.format_number_human_readable(data.get('usdValueVolume24h', 0))
         )
 
         return final_message, data.get("logoUrl")
 
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except Exception as e:
-        return (str.format(UNEXPECTED,e))
+        return (str.format(messages.UNEXPECTED_ERROR,e))
 
 
 def retrieve_token_ohlcv_data(mint_address: str, resolution: str, start_date: str, end_date: str) -> str:
@@ -778,37 +748,37 @@ def retrieve_token_ohlcv_data(mint_address: str, resolution: str, start_date: st
 
     valid_resolutions = ['1s', '1m', '3m', '5m', '15m', '30m', '1h', '2h', '3h', '4h', '1d', '1w', '1mo', '1y']
 
-    if not is_valid_mint(mint_address):
-        return INVALID_MINT_ADDRESS
+    if not evaluates.is_valid_mint(mint_address):
+        return messages.INVALID_MINT_ADDRESS
     if resolution not in valid_resolutions:
         return "❌ Invalid resolution! Choose from: " + ", ".join(valid_resolutions)
 
-    start_ts = full_datetime_to_unix(start_date)
-    end_ts = full_datetime_to_unix(end_date)
+    start_ts = datetime.full_datetime_to_unix(start_date)
+    end_ts = datetime.full_datetime_to_unix(end_date)
 
     if not start_ts:
-        return INVALID_START_DATE
+        return messages.INVALID_START_DATE
     if not end_ts or end_ts <= start_ts:
-        return INVALID_END_DATE
+        return messages.INVALID_END_DATE
 
-    url = str.format(TOKEN_OHLCV_URL, mint_address,resolution,start_ts,end_ts)
+    url = str.format(urls.TOKEN_OHLCV_URL, mint_address,resolution,start_ts,end_ts)
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
         response.raise_for_status()
         data = response.json().get("data", [])
 
         if not data:
-            return NO_OHLCV_FOUND
+            return messages.NO_OHLCV_FOUND
 
         output = [
-            str.format(TOKEN_OHLCV_HEADER,resolution, start_date, end_date)
+            str.format(messages.TOKEN_OHLCV_HEADER,resolution, start_date, end_date)
         ]
 
         for item in data[:10]:
-            time_str = datetime.utcfromtimestamp(item["time"]).strftime('%Y-%m-%d %H:%M:%S')
+            time_str = datetime.datetime.utcfromtimestamp(item["time"]).strftime('%Y-%m-%d %H:%M:%S')
             output.append(
-                str.format(TOKEN_OHLCV_ITEM,
+                str.format(messages.TOKEN_OHLCV_ITEM,
                     time_str,
                     item['open'],
                     item['high'],
@@ -823,9 +793,9 @@ def retrieve_token_ohlcv_data(mint_address: str, resolution: str, start_date: st
         return "\n".join(output)
 
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except Exception as e:
-        return (str.format(UNEXPECTED,e))
+        return (str.format(messages.UNEXPECTED_ERROR,e))
 
 def retrieve_top_token_holders(mint_address: str, sort_criteria: str, sort_order: str, limit: int) -> str:
     """
@@ -877,21 +847,21 @@ def retrieve_top_token_holders(mint_address: str, sort_criteria: str, sort_order
     valid_criteria = ['rank', 'ownerName', 'ownerAddress', 'valueUsd', 'balance', 'percentageOfSupplyHeld']
     valid_order = ['asc', 'desc']
 
-    if not is_valid_mint(mint_address):
-        return INVALID_MINT_ADDRESS
+    if not evaluates.is_valid_mint(mint_address):
+        return messages.INVALID_MINT_ADDRESS
 
     if sort_criteria not in valid_criteria:
-        return INVALID_SORT_CRITERIA
+        return messages.INVALID_SORT_CRITERIA
 
     if sort_order.lower() not in valid_order:
-        return INVALID_SORT_ORDER
+        return messages.INVALID_SORT_ORDER
 
     if limit <= 0:
-        return INVALID_LIMIT
-    url = str.format(TOP_TOKEN_HOLDERS_URL, mint_address,limit,sort_criteria,sort_order.capitalize())
+        return messages.INVALID_LIMIT
+    url = str.format(urls.TOP_TOKEN_HOLDERS_URL, mint_address,limit,sort_criteria,sort_order.capitalize())
 
     try:
-        response = requests.get(url, headers=headers, timeout=250)
+        response = requests.get(url, headers=preferences.headers, timeout=250)
         response.raise_for_status()
         data = response.json().get("data", [])
 
@@ -901,7 +871,7 @@ def retrieve_top_token_holders(mint_address: str, sort_criteria: str, sort_order
         output = [f"📋 *Top {limit} Token Holders* (Sorted by *{sort_criteria}*, `{sort_order.upper()}`):"]
         for holder in data:
             output.append(
-                str.format(TOKEN_HOLDER_DETAIL,
+                str.format(messages.TOKEN_HOLDER_DETAIL,
                     rank=holder.get('rank'),
                     owner_name=holder.get('ownerName', 'N/A'),
                     owner_address=holder.get('ownerAddress'),
@@ -915,11 +885,11 @@ def retrieve_top_token_holders(mint_address: str, sort_criteria: str, sort_order
         return "\n".join(output)
 
     except requests.exceptions.RequestException as e:
-        return (str.format(NETWORK_ERROR,e))
+        return (str.format(messages.NETWORK_ERROR,e))
     except json.JSONDecodeError:
-        return JSON_ERROR
+        return messages.JSON_ERROR
     except Exception as e:
-        return (str.format(UNEXPECTED,e))
+        return (str.format(messages.UNEXPECTED_ERROR,e))
 
 def retrieve_program_info(address: str) -> str | None:
     """
@@ -954,11 +924,11 @@ def retrieve_program_info(address: str) -> str | None:
         - If neither exists, the address itself is returned as fallback.
         - Safe to call even if the program does not exist (returns None on error).
     """
-
+    url = str.format(urls.PROGRAM_DETAILS_URL,address)
     try:
         res = requests.get(
-            f"https://api.vybenetwork.xyz/program/{address}",
-            headers=headers,
+            url,
+            headers=preferences.headers,
             timeout=250
         )
         if res.ok:
@@ -1001,10 +971,12 @@ def fetch_tvl_data(address: str, resolution: str) -> list:
         - If the program is invalid or there is no available data, the function returns an empty list.
         - Resolution must match supported intervals by Vybe Network ('1h', '1d', etc.).
     """
+    url = str.format(urls.PROGRAM_TVL, address, resolution)
+
     try:
         res = requests.get(
-            f"https://api.vybenetwork.xyz/program/{address}/tvl?resolution={resolution}",
-            headers=headers,
+            url,
+            headers=preferences.headers,
             timeout=250
         )
         res.raise_for_status()
